@@ -6,9 +6,8 @@ from backend.database import engine, Base
 # Import all models so Base.metadata knows every table before create_all
 from backend.models import user, health_record, health_analytics, task  # noqa: F401
 
-from backend.routers import dashboard, vitals
+from backend.routers import auth, dashboard, vitals
 
-# Create all tables on startup
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="VitalID API", version="1.0.0")
@@ -20,6 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(vitals.router)
 
