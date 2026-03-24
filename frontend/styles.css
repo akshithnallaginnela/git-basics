@@ -724,4 +724,19 @@ body {
 /* ===== LOGOUT ===== */
 .logout-wrap {
   padding: 0 16px 24px;
-  tex
+  text-align: center;
+}
+
+.logout-btn {
+  background: transparent;
+  border: 1.5px solid #C8F0EC;
+  border-radius: 999px;
+  padding: 8px 24px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  color: #7ECCC7;
+  cursor: pointer;
+}
+
+.hidden { display: none !important; }
