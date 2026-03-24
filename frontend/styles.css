@@ -569,3 +569,159 @@ body {
   display: block;
   margin-top: 2px;
 }
+
+/* ===== AUTH GATE ===== */
+.auth-gate {
+  padding: 48px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-logo {
+  font-size: 28px;
+  font-weight: 800;
+  color: #26C6BF;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 0;
+  border: 1.5px solid #C8F0EC;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #7ECCC7;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.auth-tab.active {
+  background: #26C6BF;
+  color: white;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-input {
+  border: 1.5px solid #C8F0EC;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 14px;
+  color: #1A3A38;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.auth-input:focus { border-color: #26C6BF; }
+
+.auth-btn {
+  background: #26C6BF;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 13px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.auth-error {
+  font-size: 12px;
+  color: #e57373;
+  text-align: center;
+  min-height: 16px;
+}
+
+/* ===== VITALS LOG FORM ===== */
+.vitals-log-form {
+  background: #F2FDFB;
+  border: 1.5px solid #C8F0EC;
+  border-radius: 20px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-row {
+  display: flex;
+  gap: 8px;
+}
+
+.log-input {
+  flex: 1;
+  border: 1.5px solid #C8F0EC;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  color: #1A3A38;
+  background: white;
+  outline: none;
+}
+
+.log-input:focus { border-color: #26C6BF; }
+
+.log-btn {
+  background: #26C6BF;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 10px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.vitals-msg {
+  font-size: 12px;
+  text-align: center;
+  min-height: 16px;
+}
+
+/* ===== SKELETONS ===== */
+.skeleton-card, .skeleton-block, .skeleton-pill {
+  background: linear-gradient(90deg, #F2FDFB 25%, #E0F7F4 50%, #F2FDFB 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.skeleton-pill { width: 120px; height: 38px; border-radius: 999px; }
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ===== STATUS BADGE VARIANTS ===== */
+.status-healthy  { background: rgba(255,255,255,0.25); }
+.status-stable   { background: rgba(255,255,255,0.2); }
+.status-caution  { background: rgba(255,220,100,0.3); }
+.status-warning  { background: rgba(255,150,100,0.3); }
+.status-alert    { background: rgba(255,100,100,0.3); }
+
+/* ===== LOGOUT ===== */
+.logout-wrap {
+  padding: 0 16px 24px;
+  tex
