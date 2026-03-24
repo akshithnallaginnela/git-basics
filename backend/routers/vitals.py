@@ -6,12 +6,13 @@ from typing import Optional
 
 from backend.database import get_db
 from backend.models.health_record import VitalReading
+from backend.models.user import User
+from backend.security.auth import get_current_user
 
 router = APIRouter(prefix="/api/vitals", tags=["vitals"])
 
 
 class VitalLogRequest(BaseModel):
-    user_id: int
     systolic_bp: Optional[int] = Field(None, ge=60, le=250)
     diastolic_bp: Optional[int] = Field(None, ge=40, le=150)
     blood_glucose: Optional[float] = Field(None, ge=20, le=600)
@@ -23,9 +24,13 @@ class VitalLogRequest(BaseModel):
 
 
 @router.post("/log", status_code=201)
-async def log_vitals(payload: VitalLogRequest, db: Session = Depends(get_db)):
+def log_vitals(
+    payload: VitalLogRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     reading = VitalReading(
-        user_id=payload.user_id,
+        user_id=current_user.id,
         systolic_bp=payload.systolic_bp,
         diastolic_bp=payload.diastolic_bp,
         blood_glucose=payload.blood_glucose,
@@ -42,11 +47,15 @@ async def log_vitals(payload: VitalLogRequest, db: Session = Depends(get_db)):
     return {"id": reading.id, "recorded_at": reading.reading_time.isoformat()}
 
 
-@router.get("/history/{user_id}")
-async def get_vitals_history(user_id: int, limit: int = 30, db: Session = Depends(get_db)):
+@router.get("/history")
+def get_vitals_history(
+    limit: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     readings = (
         db.query(VitalReading)
-        .filter(VitalReading.user_id == user_id)
+        .filter(VitalReading.user_id == current_user.id)
         .order_by(VitalReading.reading_time.desc())
         .limit(limit)
         .all()
