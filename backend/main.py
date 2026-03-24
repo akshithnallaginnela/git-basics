@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import engine, Base
 
-# Import all models so Base.metadata knows every table before create_all
-from backend.models import user, health_record, health_analytics, task  # noqa: F401
+# All models must be imported before create_all
+from backend.models import user, health_record, health_analytics, task, blood_report  # noqa: F401
 
-from backend.routers import auth, dashboard, vitals
+from backend.routers import auth, dashboard, vitals, reports
 
 Base.metadata.create_all(bind=engine)
 
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(vitals.router)
+app.include_router(reports.router)
 
 
 @app.get("/health")
