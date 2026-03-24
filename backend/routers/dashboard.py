@@ -3,102 +3,41 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models.health_record import VitalReading, DietEntry
+from backend.models.health_record import VitalReading
+from backend.models.blood_report import BloodReport
 from backend.models.user import User
 from backend.ml.trend_analyzer import VitalTrendAnalyzer
-from backend.ml.preventive_analysis import PreventiveAnalysisEngine
-from backend.ml.dynamic_task_generator import DynamicTaskGenerator
-from backend.ml.trained_health_model import TrainedHealthPredictor
+from backend.ml.future_preventive_engine import FuturePreventiveEngine
+from backend.ml.task_engine import TaskEngine
 from backend.security.auth import get_current_user
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
-_predictor = TrainedHealthPredictor()
+_preventive = FuturePreventiveEngine()
+_task_engine = TaskEngine()
 
 
-def _engines(db: Session):
-    trend = VitalTrendAnalyzer(db)
-    preventive = PreventiveAnalysisEngine(db, trend)
-    tasks = DynamicTaskGenerator(db, preventive, trend)
-    return trend, preventive, tasks
+def _latest_vitals(user_id: int, db: Session):
+    r = db.query(VitalReading).filter(VitalReading.user_id == user_id).order_by(VitalReading.reading_time.desc()).first()
+    if not r:
+        return None
+    return {"systolic_bp": r.systolic_bp, "diastolic_bp": r.diastolic_bp, "blood_glucose": r.blood_glucose, "weight": r.weight, "height": r.height}
 
 
-@router.get("/vitals-trends")
-def get_vitals_trends(
-    days: int = Query(default=30, ge=7, le=365),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    trend, _, _ = _engines(db)
-    return {
-        "bp_trends": trend.calculate_bp_trends(current_user.id, days),
-        "glucose_trends": trend.calculate_glucose_trends(current_user.id, days),
-        "generated_at": datetime.utcnow().isoformat(),
-    }
+def _latest_report(user_id: int, db: Session):
+    r = db.query(BloodReport).filter(BloodReport.user_id == user_id, BloodReport.is_latest == True).first()
+    if not r:
+        return None
+    return {k: getattr(r, k) for k in ["hemoglobin", "platelets", "wbc", "total_cholesterol", "ldl", "hdl", "triglycerides", "creatinine", "hba1c", "tsh", "vitamin_d", "vitamin_b12", "iron"] if getattr(r, k) is not None}
 
 
-@router.get("/body-status")
-def get_body_status(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    _, preventive, _ = _engines(db)
-    return preventive.generate_body_status(current_user.id)
-
-
-@router.get("/daily-tasks")
-def get_daily_tasks(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    _, _, task_gen = _engines(db)
-    tasks = task_gen.generate_daily_tasks(current_user.id)
-    return {"tasks": tasks, "count": len(tasks), "generated_at": datetime.utcnow().isoformat()}
-
-
-@router.get("/health-risk")
-def get_health_risk(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    latest = (
-        db.query(VitalReading)
-        .filter(VitalReading.user_id == current_user.id)
-        .order_by(VitalReading.reading_time.desc())
-        .first()
-    )
-    if not latest:
-        raise HTTPException(status_code=404, detail="No vitals recorded yet")
-
-    return _predictor.predict_health_risk({
-        "systolic_bp": latest.systolic_bp,
-        "diastolic_bp": latest.diastolic_bp,
-        "blood_glucose": latest.blood_glucose,
-        "weight": latest.weight,
-        "age": current_user.age,
-        "activity_level": current_user.activity_level,
-    })
-
-
-@router.get("/diet-recommendations")
-def get_diet_recommendations(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    latest = (
-        db.query(VitalReading)
-        .filter(VitalReading.user_id == current_user.id)
-        .order_by(VitalReading.reading_time.desc())
-        .first()
-    )
-    if not latest:
-        raise HTTPException(status_code=404, detail="No vitals recorded yet")
-
-    diet_history = db.query(DietEntry).filter(DietEntry.user_id == current_user.id).all()
-    return _predictor.recommend_diet(
-        {"blood_glucose": latest.blood_glucose, "systolic_bp": latest.systolic_bp, "weight": latest.weight},
-        diet_history,
-    )
+def _bmi(vitals):
+    if not vitals:
+        return None
+    w, h = vitals.get("weight"), vitals.get("height")
+    if w and h and h > 0:
+        return round(w / ((h / 100) ** 2), 1)
+    return None
 
 
 @router.get("/analytics-dashboard")
@@ -107,30 +46,71 @@ def get_analytics_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    trend, preventive, task_gen = _engines(db)
-    latest = (
+    trend_analyzer = VitalTrendAnalyzer(db)
+    vitals = _latest_vitals(current_user.id, db)
+    report = _latest_report(current_user.id, db)
+    bmi = _bmi(vitals)
+
+    bp_trend = trend_analyzer.calculate_bp_trends(current_user.id, days)
+    glucose_trend = trend_analyzer.calculate_glucose_trends(current_user.id, days)
+    vitals_trend = {"bp": bp_trend, "glucose": glucose_trend}
+
+    preventive = _preventive.generate(vitals_trend, vitals or {}, report)
+    tasks = _task_engine.generate(vitals, vitals_trend, report, bmi)
+
+    # Last 7 readings for chart
+    readings = (
         db.query(VitalReading)
         .filter(VitalReading.user_id == current_user.id)
         .order_by(VitalReading.reading_time.desc())
-        .first()
+        .limit(7)
+        .all()
     )
-    vitals_dict = {
-        "systolic_bp": latest.systolic_bp if latest else None,
-        "diastolic_bp": latest.diastolic_bp if latest else None,
-        "blood_glucose": latest.blood_glucose if latest else None,
-        "weight": latest.weight if latest else None,
-        "age": current_user.age,
-        "activity_level": current_user.activity_level,
-    }
+    chart_data = [
+        {"date": r.reading_time.strftime("%a"), "systolic": r.systolic_bp, "diastolic": r.diastolic_bp, "glucose": r.blood_glucose}
+        for r in reversed(readings)
+    ]
+
     return {
         "user": {"id": current_user.id, "name": current_user.name},
-        "vitals_trends": {
-            "bp": trend.calculate_bp_trends(current_user.id, days),
-            "glucose": trend.calculate_glucose_trends(current_user.id, days),
-        },
-        "body_status": preventive.generate_body_status(current_user.id),
-        "daily_tasks": task_gen.generate_daily_tasks(current_user.id),
-        "health_risk": _predictor.predict_health_risk(vitals_dict),
-        "diet_recommendations": _predictor.recommend_diet(vitals_dict),
+        "latest_vitals": vitals,
+        "bmi": bmi,
+        "vitals_trend": vitals_trend,
+        "chart_data": chart_data,
+        "preventive_care": preventive,   # future predictions
+        "daily_tasks": tasks,            # present-day actions
+        "blood_report": report,
         "generated_at": datetime.utcnow().isoformat(),
     }
+
+
+@router.get("/preventive-care")
+def get_preventive_care(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trend_analyzer = VitalTrendAnalyzer(db)
+    vitals = _latest_vitals(current_user.id, db)
+    report = _latest_report(current_user.id, db)
+    vitals_trend = {
+        "bp": trend_analyzer.calculate_bp_trends(current_user.id),
+        "glucose": trend_analyzer.calculate_glucose_trends(current_user.id),
+    }
+    return _preventive.generate(vitals_trend, vitals or {}, report)
+
+
+@router.get("/daily-tasks")
+def get_daily_tasks(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    trend_analyzer = VitalTrendAnalyzer(db)
+    vitals = _latest_vitals(current_user.id, db)
+    report = _latest_report(current_user.id, db)
+    bmi = _bmi(vitals)
+    vitals_trend = {
+        "bp": trend_analyzer.calculate_bp_trends(current_user.id),
+        "glucose": trend_analyzer.calculate_glucose_trends(current_user.id),
+    }
+    tasks = _task_engine.generate(vitals, vitals_trend, report, bmi)
+    return {"tasks": tasks, "count": len(tasks), "generated_at": datetime.utcnow().isoformat()}
