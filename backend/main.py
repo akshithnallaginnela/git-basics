@@ -31,3 +31,9 @@ app.include_router(reports.router)
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+# Serve frontend — must be LAST so API routes take priority
+frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
+if os.path.exists(frontend_path):
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
